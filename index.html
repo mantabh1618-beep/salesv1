@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bank Data – Filter Rapi</title>
+    <link rel="manifest" href="manifest.json">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
     </script>
     <style>
@@ -28,7 +29,6 @@
             background: linear-gradient(135deg, #1a2332 0%, #2c3e50 100%);
             border-radius: 14px;
             padding: 10px 20px;
-            /* lebih tipis */
             margin-bottom: 14px;
             display: flex;
             flex-wrap: wrap;
@@ -45,7 +45,6 @@
             background: rgba(255, 255, 255, 0.10);
             border-radius: 10px;
             padding: 6px 10px;
-            /* lebih tipis */
             font-size: 20px;
             backdrop-filter: blur(4px);
             border: 1px solid rgba(255, 255, 255, 0.06);
@@ -55,7 +54,6 @@
         }
         .header-left .brand h1 {
             font-size: 18px;
-            /* lebih kecil */
             font-weight: 700;
             letter-spacing: 0.3px;
             margin: 0;
@@ -66,7 +64,6 @@
         }
         .header-left .brand .subtitle {
             font-size: 10px;
-            /* lebih kecil */
             color: rgba(255, 255, 255, 0.45);
             font-weight: 400;
             letter-spacing: 0.4px;
@@ -84,7 +81,6 @@
             gap: 8px;
             background: rgba(255, 255, 255, 0.07);
             padding: 4px 10px 4px 4px;
-            /* lebih tipis */
             border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(4px);
@@ -93,7 +89,6 @@
             background: #3b82f6;
             color: #fff;
             padding: 4px 12px;
-            /* lebih tipis */
             border-radius: 6px;
             font-size: 11px;
             font-weight: 600;
@@ -139,6 +134,26 @@
             font-size: 10px;
             font-weight: 500;
             border: 1px solid rgba(16, 185, 129, 0.12);
+        }
+
+        /* Install Button */
+        .install-btn {
+            background: rgba(255, 255, 255, 0.10);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 4px 14px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        .install-btn:hover {
+            background: rgba(255, 255, 255, 0.20);
+        }
+        .install-btn.hidden {
+            display: none;
         }
 
         /* ===== Tabs ===== */
@@ -334,11 +349,9 @@
         }
         thead th {
             padding: 5px 8px;
-            /* lebih tipis */
             text-align: left;
             font-weight: 600;
             font-size: 9px;
-            /* lebih kecil */
             text-transform: uppercase;
             letter-spacing: 0.3px;
             color: #475569;
@@ -361,7 +374,6 @@
         }
         tbody td {
             padding: 5px 8px;
-            /* lebih tipis */
             vertical-align: middle;
             line-height: 1.3;
             border-right: 1px solid #f1f5f9;
@@ -516,6 +528,22 @@
             background: #94a3b8;
         }
 
+        /* ===== Offline Indicator ===== */
+        .offline-banner {
+            display: none;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-bottom: 12px;
+            border: 1px solid #f59e0b;
+        }
+        .offline-banner.show {
+            display: block;
+        }
+
         /* ===== Responsive ===== */
         @media (max-width: 768px) {
             body {
@@ -635,7 +663,13 @@
                     </div>
                 </div>
                 <span class="status-badge" id="statusBadge">● Siap</span>
+                <button class="install-btn hidden" id="installBtn">📲 Install</button>
             </div>
+        </div>
+
+        <!-- ===== Offline Banner ===== -->
+        <div class="offline-banner" id="offlineBanner">
+            ⚡ Mode Offline - Data tersimpan di perangkat Anda
         </div>
 
         <!-- ===== TABS ===== -->
@@ -727,6 +761,7 @@
             let currentPage = 1;
             const pageSize = 12;
             let currentTab = 'data';
+            let fileNameSaved = '';
 
             // DOM Elements
             const fileInput = document.getElementById('fileInput');
@@ -744,6 +779,8 @@
             const summaryContent = document.getElementById('summaryContent');
             const tabs = document.querySelectorAll('#tabContainer button');
             const statusBadge = document.getElementById('statusBadge');
+            const offlineBanner = document.getElementById('offlineBanner');
+            const installBtn = document.getElementById('installBtn');
 
             const filterFaktur = document.getElementById('filterFaktur');
             const filterTglDay = document.getElementById('filterTglDay');
@@ -757,6 +794,35 @@
             const prevPageBtn = document.getElementById('prevPage');
             const nextPageBtn = document.getElementById('nextPage');
             const pageInfo = document.getElementById('pageInfo');
+
+            // ========== Storage ==========
+            function saveToStorage() {
+                try {
+                    localStorage.setItem('bankData_allData', JSON.stringify(allData));
+                    localStorage.setItem('bankData_headers', JSON.stringify(headers));
+                    localStorage.setItem('bankData_fileName', fileNameSaved);
+                } catch (e) {
+                    console.warn('Gagal menyimpan ke localStorage:', e);
+                }
+            }
+
+            function loadFromStorage() {
+                try {
+                    const savedData = localStorage.getItem('bankData_allData');
+                    const savedHeaders = localStorage.getItem('bankData_headers');
+                    const savedName = localStorage.getItem('bankData_fileName');
+                    
+                    if (savedData && savedHeaders) {
+                        allData = JSON.parse(savedData);
+                        headers = JSON.parse(savedHeaders);
+                        fileNameSaved = savedName || '';
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('Gagal memuat dari localStorage:', e);
+                }
+                return false;
+            }
 
             // ========== Helper Functions ==========
             function getDateParts(val) {
@@ -1290,8 +1356,9 @@
             }
 
             // ========== Load Data ==========
-            function loadData(rows) {
+            function loadData(rows, name) {
                 allData = rows;
+                fileNameSaved = name || '';
                 if (allData.length === 0) {
                     dataTable.style.display = 'none';
                     emptyState.style.display = 'block';
@@ -1312,6 +1379,7 @@
                     statusBadge.style.color = '#f87171';
                     statusBadge.style.borderColor = 'rgba(248,113,113,0.2)';
                     statusBadge.style.background = 'rgba(248,113,113,0.15)';
+                    saveToStorage();
                     return;
                 }
 
@@ -1333,11 +1401,14 @@
                     generateSummary();
                 }
 
+                fileName.textContent = fileNameSaved || 'Data tersimpan';
                 filterHint.textContent = 'Menampilkan data bulan ini';
                 statusBadge.textContent = '● ' + allData.length + ' data';
                 statusBadge.style.color = '#34d399';
                 statusBadge.style.borderColor = 'rgba(16,185,129,0.15)';
                 statusBadge.style.background = 'rgba(16,185,129,0.2)';
+                
+                saveToStorage();
             }
 
             // ========== Handle File ==========
@@ -1360,7 +1431,7 @@
                         const data = new Uint8Array(e.target.result);
                         const rows = parseFile(data, file.name);
                         if (rows.length > 0) {
-                            loadData(rows);
+                            loadData(rows, file.name);
                         } else {
                             alert('Tidak ada data yang terbaca dari file.');
                             allData = [];
@@ -1379,6 +1450,7 @@
                             statusBadge.style.color = '#f87171';
                             statusBadge.style.borderColor = 'rgba(248,113,113,0.2)';
                             statusBadge.style.background = 'rgba(248,113,113,0.15)';
+                            saveToStorage();
                         }
                     } catch (err) {
                         console.error(err);
@@ -1406,7 +1478,6 @@
                     btn.classList.toggle('active', btn.dataset.tab === tab);
                 });
 
-                // Tampilkan/sembunyikan filter Pembayaran hanya di tab Per Sales
                 const pembayaranGroup = document.getElementById('filterPembayaranGroup');
                 if (tab === 'summary') {
                     pembayaranGroup.style.display = 'flex';
@@ -1424,6 +1495,43 @@
                     generateSummary();
                 }
             }
+
+            // ========== PWA Installation ==========
+            let deferredPrompt = null;
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                installBtn.classList.remove('hidden');
+            });
+
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const result = await deferredPrompt.userChoice;
+                    if (result.outcome === 'accepted') {
+                        installBtn.classList.add('hidden');
+                    }
+                    deferredPrompt = null;
+                }
+            });
+
+            window.addEventListener('appinstalled', () => {
+                installBtn.classList.add('hidden');
+            });
+
+            // ========== Online / Offline ==========
+            function updateOnlineStatus() {
+                if (navigator.onLine) {
+                    offlineBanner.classList.remove('show');
+                } else {
+                    offlineBanner.classList.add('show');
+                }
+            }
+
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus();
 
             // ========== Event Listeners ==========
             fileInput.addEventListener('change', function(e) {
@@ -1475,17 +1583,18 @@
             });
 
             // Drag & Drop
-            tableWrap.addEventListener('dragover', function(e) {
+            const dropZone = document.getElementById('tableWrap');
+            dropZone.addEventListener('dragover', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 this.style.boxShadow = '0 0 0 3px #3b82f6, 0 4px 16px rgba(0,0,0,0.10)';
             });
-            tableWrap.addEventListener('dragleave', function(e) {
+            dropZone.addEventListener('dragleave', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 this.style.boxShadow = 'none';
             });
-            tableWrap.addEventListener('drop', function(e) {
+            dropZone.addEventListener('drop', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 this.style.boxShadow = 'none';
@@ -1501,26 +1610,74 @@
                 }
             });
 
-            // ========== Initial State ==========
-            dataTable.style.display = 'none';
-            emptyState.style.display = 'block';
-            emptyState.innerHTML = `
-                <div style="font-size:30px; margin-bottom:10px;">📂</div>
-                <strong>Belum ada data</strong><br />
-                Upload file Excel atau CSV, atau drag & drop ke area ini.
-            `;
-            totalCount.textContent = '0';
-            visibleCount.textContent = '0';
-            rowCount.textContent = '0 / 0 baris';
-            pageInfo.textContent = 'Halaman 0 / 0';
-            prevPageBtn.disabled = true;
-            nextPageBtn.disabled = true;
-            summaryWrap.classList.remove('active');
+            // ========== Initial Load ==========
+            const hasSavedData = loadFromStorage();
+            
+            if (hasSavedData && allData.length > 0) {
+                // Restore filter values from storage
+                try {
+                    const savedFilters = localStorage.getItem('bankData_filters');
+                    if (savedFilters) {
+                        const filters = JSON.parse(savedFilters);
+                        filterFaktur.value = filters.faktur || '';
+                        filterTglDay.value = filters.tglDay || '';
+                        filterTglMonth.value = filters.tglMonth || '';
+                        filterTglYear.value = filters.tglYear || '';
+                        filterSalesDropdown.value = filters.sales || '';
+                        filterProduk.value = filters.produk || '';
+                        filterPembayaran.value = filters.pembayaran || '';
+                    }
+                } catch (e) {}
+                
+                updateDropdowns();
+                applyFilters();
+                fileName.textContent = fileNameSaved || 'Data tersimpan';
+                statusBadge.textContent = '● ' + allData.length + ' data (offline)';
+                statusBadge.style.color = '#60a5fa';
+                statusBadge.style.borderColor = 'rgba(96,165,250,0.15)';
+                statusBadge.style.background = 'rgba(96,165,250,0.2)';
+                
+                if (currentTab === 'summary') {
+                    generateSummary();
+                }
+            } else {
+                dataTable.style.display = 'none';
+                emptyState.style.display = 'block';
+                emptyState.innerHTML = `
+                    <div style="font-size:30px; margin-bottom:10px;">📂</div>
+                    <strong>Belum ada data</strong><br />
+                    Upload file Excel atau CSV, atau drag & drop ke area ini.
+                `;
+                totalCount.textContent = '0';
+                visibleCount.textContent = '0';
+                rowCount.textContent = '0 / 0 baris';
+                pageInfo.textContent = 'Halaman 0 / 0';
+                prevPageBtn.disabled = true;
+                nextPageBtn.disabled = true;
+                summaryWrap.classList.remove('active');
+            }
 
             // Sembunyikan filter Pembayaran di awal (tab Data)
             document.getElementById('filterPembayaranGroup').style.display = 'none';
 
-            console.log('✅ Bank Data siap. Filter pembayaran: Cash / Tempo. Header lebih tipis.');
+            // Save filters on change
+            document.querySelectorAll('.filter-bar input, .filter-bar select').forEach(el => {
+                el.addEventListener('change', () => {
+                    try {
+                        localStorage.setItem('bankData_filters', JSON.stringify({
+                            faktur: filterFaktur.value,
+                            tglDay: filterTglDay.value,
+                            tglMonth: filterTglMonth.value,
+                            tglYear: filterTglYear.value,
+                            sales: filterSalesDropdown.value,
+                            produk: filterProduk.value,
+                            pembayaran: filterPembayaran.value
+                        }));
+                    } catch (e) {}
+                });
+            });
+
+            console.log('✅ Bank Data siap dengan PWA & offline storage.');
         })();
     </script>
 
